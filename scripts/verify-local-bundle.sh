@@ -21,6 +21,40 @@ do
   fi
 done
 
+marketplace="$bundle/resources/plugins/openai-bundled/.agents/plugins/marketplace.json"
+if [[ ! -f "$marketplace" ]]; then
+  marketplace="$bundle/resources/app.asar.unpacked/plugins/openai-bundled/.agents/plugins/marketplace.json"
+fi
+
+if [[ ! -f "$marketplace" ]]; then
+  printf 'missing: %s\n' "$bundle/resources/plugins/openai-bundled/.agents/plugins/marketplace.json" >&2
+  printf 'Browser use needs the official resources/plugins/openai-bundled directory.\n' >&2
+  missing=1
+else
+  bundled_root="$(dirname "$(dirname "$(dirname "$marketplace")")")"
+  browser_plugin="$bundled_root/plugins/browser-use"
+
+  if ! grep -q '"name"[[:space:]]*:[[:space:]]*"openai-bundled"' "$marketplace"; then
+    printf 'invalid marketplace name: %s\n' "$marketplace" >&2
+    missing=1
+  fi
+
+  if ! grep -q '"name"[[:space:]]*:[[:space:]]*"browser-use"' "$marketplace"; then
+    printf 'missing browser-use entry: %s\n' "$marketplace" >&2
+    missing=1
+  fi
+
+  for path in \
+    "$browser_plugin/.codex-plugin/plugin.json" \
+    "$browser_plugin/scripts/browser-client.mjs"
+  do
+    if [[ ! -e "$path" ]]; then
+      printf 'missing: %s\n' "$path" >&2
+      missing=1
+    fi
+  done
+fi
+
 if [[ "$missing" -ne 0 ]]; then
   exit 1
 fi

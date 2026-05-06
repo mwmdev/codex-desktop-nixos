@@ -65,6 +65,56 @@ else
       test -f "$out/opt/codex-app/resources/app.asar"
       test -f "$out/opt/codex-app/content/webview/index.html"
 
+      bundled_marketplace="$out/opt/codex-app/resources/plugins/openai-bundled/.agents/plugins/marketplace.json"
+      if [ ! -f "$bundled_marketplace" ]; then
+        bundled_marketplace="$out/opt/codex-app/resources/app.asar.unpacked/plugins/openai-bundled/.agents/plugins/marketplace.json"
+      fi
+
+      if [ ! -f "$bundled_marketplace" ]; then
+        cat >&2 <<'EOF'
+      error: missing Codex bundled plugin marketplace.
+
+      Browser use requires the official bundle directory:
+        resources/plugins/openai-bundled
+
+      Recreate the Codex app bundle from the official desktop app extraction,
+      keeping resources/plugins/openai-bundled alongside resources/app.asar.
+      EOF
+        exit 1
+      fi
+
+      bundled_root="$(dirname "$(dirname "$(dirname "$bundled_marketplace")")")"
+      node - "$bundled_marketplace" "$bundled_root" <<'NODE'
+      const fs = require("node:fs");
+      const path = require("node:path");
+
+      const marketplacePath = process.argv[2];
+      const marketplaceRoot = process.argv[3];
+      const marketplace = JSON.parse(fs.readFileSync(marketplacePath, "utf8"));
+
+      if (marketplace.name !== "openai-bundled") {
+        throw new Error("expected marketplace name openai-bundled");
+      }
+
+      const browserUse = marketplace.plugins.find((plugin) => plugin.name === "browser-use");
+      if (!browserUse?.source?.path) {
+        throw new Error("openai-bundled marketplace does not list browser-use");
+      }
+
+      const pluginRoot = path.resolve(marketplaceRoot, browserUse.source.path);
+      const pluginManifestPath = path.join(pluginRoot, ".codex-plugin", "plugin.json");
+      const browserClientPath = path.join(pluginRoot, "scripts", "browser-client.mjs");
+      const pluginManifest = JSON.parse(fs.readFileSync(pluginManifestPath, "utf8"));
+
+      if (pluginManifest.name !== "browser-use") {
+        throw new Error("browser-use plugin manifest has the wrong name");
+      }
+
+      if (!fs.existsSync(browserClientPath)) {
+        throw new Error("browser-use plugin is missing scripts/browser-client.mjs");
+      }
+      NODE
+
       rm -f "$out/opt/codex-app/resources/app.asar.bak-original"
 
       mkdir app-asar
@@ -87,6 +137,7 @@ else
         --prefix PATH : ${lib.escapeShellArg runtimePath} \
         --prefix LD_LIBRARY_PATH : ${lib.escapeShellArg runtimeLibPath} \
         --set-default CODEX_ELECTRON_SKIP_SHELL_ENV 1 \
+        --set-default CODEX_ELECTRON_BUNDLED_PLUGINS_RESOURCES_PATH "$out/opt/codex-app/resources" \
         ${maybeCodexCli}
 
       mkdir -p "$out/bin"
