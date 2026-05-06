@@ -1,0 +1,9 @@
+/result
+/result-*
+/.direnv
+/.envrc
+*.log
+*.asar
+*.asar.unpacked
+Codex-*
+codex-app/
