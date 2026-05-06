@@ -40,7 +40,7 @@ Add this to your NixOS configuration:
 
 let
   codexDesktop = pkgs.callPackage /path/to/codex-desktop-nixos/package.nix {
-    codexAppSrc = /path/to/codex-app-current;
+    codexAppSrc = /path/to/codex-app;
     # codexCliPath = "/home/alice/.npm-global/bin/codex";
   };
 in
@@ -75,7 +75,7 @@ codex-app ~/my-project
         {
           programs.codex-desktop = {
             enable = true;
-            bundlePath = /path/to/codex-app-current;
+            bundlePath = /path/to/codex-app;
           };
         }
       ];
@@ -88,31 +88,21 @@ codex-app ~/my-project
 
 When the official Codex Desktop app updates, update the local bundle and rebuild the package.
 
-Recommended layout:
-
-```text
-/path/to/codex-app-2026-05-06
-/path/to/codex-app-2026-06-01
-/path/to/codex-app-current -> /path/to/codex-app-2026-06-01
-```
-
 Update flow:
 
 ```bash
-scripts/verify-local-bundle.sh /path/to/codex-app-2026-06-01
-CODEX_APP_DIR=/path/to/codex-app-2026-06-01 nix build --impure .#fromEnv
+scripts/verify-local-bundle.sh /path/to/codex-app
+CODEX_APP_DIR=/path/to/codex-app nix build --impure .#fromEnv
 ./result/bin/codex-app --help
 ```
 
-If that passes, update `codex-app-current` or change `codexAppSrc`, then rebuild NixOS:
+If that passes, rebuild NixOS:
 
 ```bash
 sudo nixos-rebuild switch
 ```
 
 If the build fails while patching `app.asar`, the official bundle internals changed. Update the patch scripts in `patches/`, commit that change, then rebuild. The package is designed to fail loudly instead of silently producing a broken app.
-
-Rollback is just the reverse: point `codex-app-current` or `codexAppSrc` back to the previous bundle and rebuild.
 
 ## What The Package Fixes
 
