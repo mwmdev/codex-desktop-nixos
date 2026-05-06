@@ -1,59 +1,47 @@
 # Codex Desktop for NixOS
 
-Nix packaging and Linux patch scripts for running the Codex Desktop Electron app on NixOS.
+Nix packaging for running a user-provided Codex Desktop Electron bundle on NixOS.
 
-This repository intentionally does **not** redistribute the Codex Desktop app bundle, Electron binary, or `app.asar`. Users provide their own official/unpacked Codex Desktop bundle and this package applies the NixOS runtime fixes locally.
-
-## What This Packages
-
-- A Nix derivation for an unpacked Codex Desktop Electron directory.
-- ASAR patches for Linux/NixOS startup behavior.
-- A `codex-desktop` launcher for the native Electron app.
-- A `codex-app [PATH]` detached launcher that opens a workspace via `--open-project`.
-- Desktop entry and icon installation.
+This repo does not contain the Codex Desktop app, Electron binary, `app.asar`, or OpenAI assets. It only contains Nix packaging and local patch scripts. Each user must provide their own unpacked official Codex Desktop bundle.
 
 ## Requirements
 
 - NixOS or Nix on Linux.
-- An unpacked Codex Desktop app directory containing:
+- An unpacked Codex Desktop directory with:
   - `electron`
   - `resources/app.asar`
   - `content/webview/index.html`
-- The Codex CLI available as `codex` in `PATH`, or set `CODEX_CLI_PATH`.
+- The Codex CLI available in `PATH`, or pass `codexCliPath` in NixOS config.
 
-On Mike's machine the local source bundle was:
-
-```bash
-/home/mike/bin/codex-app
-```
-
-## Quick Build With Flakes
+## Quick Test
 
 ```bash
 git clone git@github.com:mwmdev/codex-desktop-nixos.git
 cd codex-desktop-nixos
 
+scripts/verify-local-bundle.sh /path/to/codex-app
 CODEX_APP_DIR=/path/to/codex-app nix build --impure .#fromEnv
-./result/bin/codex-app /path/to/project
+./result/bin/codex-app ~/my-project
 ```
 
-Install into the user profile:
+## Install With Nix Profile
 
 ```bash
 CODEX_APP_DIR=/path/to/codex-app nix profile install --impure .#fromEnv
-codex-app /path/to/project
+codex-app ~/my-project
 ```
 
-## Channel-Based NixOS
+## Install On Channel-Based NixOS
 
-For non-flake systems, import `package.nix` directly:
+Add this to your NixOS configuration:
 
 ```nix
 { config, pkgs, ... }:
 
 let
   codexDesktop = pkgs.callPackage /path/to/codex-desktop-nixos/package.nix {
-    codexAppSrc = /path/to/codex-app;
+    codexAppSrc = /path/to/codex-app-current;
+    # codexCliPath = "/home/alice/.npm-global/bin/codex";
   };
 in
 {
@@ -66,20 +54,20 @@ in
 }
 ```
 
-Then:
+Then rebuild:
 
 ```bash
 sudo nixos-rebuild switch
 codex-app ~/my-project
 ```
 
-## Flake NixOS Module
+## Install With A Flake NixOS Module
 
 ```nix
 {
   inputs.codex-desktop-nixos.url = "github:mwmdev/codex-desktop-nixos";
 
-  outputs = { self, nixpkgs, codex-desktop-nixos, ... }: {
+  outputs = { nixpkgs, codex-desktop-nixos, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
@@ -87,7 +75,7 @@ codex-app ~/my-project
         {
           programs.codex-desktop = {
             enable = true;
-            bundlePath = /path/to/codex-app;
+            bundlePath = /path/to/codex-app-current;
           };
         }
       ];
@@ -96,14 +84,49 @@ codex-app ~/my-project
 }
 ```
 
-## Notes
+## Updating Codex Desktop
 
-- The package wraps the app with `libstdc++.so.6` from `stdenv.cc.cc.lib`, which fixes the native Node module loader crash seen on NixOS.
-- The package sets `CODEX_ELECTRON_SKIP_SHELL_ENV=1` by default. The Electron bundle's shell environment probe can time out under NixOS desktop sessions; the launched app still inherits the wrapper environment.
-- The desktop app starts its bundled webview with `python3 -m http.server`, so `python3` is included in the launcher `PATH`.
-- Runtime logs are written by the app to `~/.cache/codex-desktop/launcher.log`.
-- The desktop icon is installed when the bundle contains `.codex-linux/codex-desktop.png` or a matching Codex logo PNG in `content/webview/assets`.
+When the official Codex Desktop app updates, update the local bundle and rebuild the package.
 
-## Legal
+Recommended layout:
 
-This repository only contains packaging and patch code. It does not grant rights to redistribute Codex Desktop binaries or OpenAI assets.
+```text
+/path/to/codex-app-2026-05-06
+/path/to/codex-app-2026-06-01
+/path/to/codex-app-current -> /path/to/codex-app-2026-06-01
+```
+
+Update flow:
+
+```bash
+scripts/verify-local-bundle.sh /path/to/codex-app-2026-06-01
+CODEX_APP_DIR=/path/to/codex-app-2026-06-01 nix build --impure .#fromEnv
+./result/bin/codex-app --help
+```
+
+If that passes, update `codex-app-current` or change `codexAppSrc`, then rebuild NixOS:
+
+```bash
+sudo nixos-rebuild switch
+```
+
+If the build fails while patching `app.asar`, the official bundle internals changed. Update the patch scripts in `patches/`, commit that change, then rebuild. The package is designed to fail loudly instead of silently producing a broken app.
+
+Rollback is just the reverse: point `codex-app-current` or `codexAppSrc` back to the previous bundle and rebuild.
+
+## What The Package Fixes
+
+- Adds NixOS runtime libraries needed by native Node modules, especially `libstdc++.so.6`.
+- Adds runtime tools used by the launcher, including `python3`, shell utilities, and `setsid`.
+- Patches the app startup path to skip shell environment hydration timeouts under NixOS.
+- Installs `codex-desktop`, `codex-app [PATH]`, and a desktop entry.
+
+Runtime logs are written by the app to:
+
+```text
+~/.cache/codex-desktop/launcher.log
+```
+
+## License
+
+The packaging code in this repository is MIT licensed. Codex Desktop binaries and OpenAI assets are not redistributed or licensed by this repository.
