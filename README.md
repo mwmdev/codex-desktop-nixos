@@ -104,13 +104,6 @@ sudo nixos-rebuild switch
 
 If the build fails while patching `app.asar`, the official bundle internals changed. Update the patch scripts in `patches/`, commit that change, then rebuild. The package is designed to fail loudly instead of silently producing a broken app.
 
-## What The Package Fixes
-
-- Adds NixOS runtime libraries needed by native Node modules, especially `libstdc++.so.6`.
-- Adds runtime tools used by the launcher, including `python3`, shell utilities, and `setsid`.
-- Patches the app startup path to skip shell environment hydration timeouts under NixOS.
-- Installs `codex-desktop`, `codex-app [PATH]`, and a desktop entry.
-
 Runtime logs are written by the app to:
 
 ```text
