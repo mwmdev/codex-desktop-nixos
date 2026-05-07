@@ -3,14 +3,43 @@
   stdenvNoCC,
   stdenv,
   asar,
+  alsa-lib,
+  at-spi2-atk,
+  at-spi2-core,
+  atk,
   bashNonInteractive,
+  cairo,
   coreutils,
+  cups,
+  dbus,
+  expat,
   gawk,
+  glib,
   gnugrep,
   gnused,
+  gtk3,
+  libdrm,
+  libgbm,
+  libx11,
+  libxscrnsaver,
+  libxcomposite,
+  libxcursor,
+  libxdamage,
+  libxext,
+  libxfixes,
+  libxi,
+  libxkbcommon,
+  libxrandr,
+  libxtst,
+  libxcb,
+  libxshmfence,
   makeWrapper,
+  nspr,
+  nss,
   nodejs,
+  pango,
   python3,
+  systemdLibs,
   util-linux,
   codexAppSrc ? null,
   codexCliPath ? null,
@@ -28,7 +57,36 @@ let
   ];
 
   runtimeLibPath = lib.makeLibraryPath [
+    alsa-lib
+    at-spi2-atk
+    at-spi2-core
+    atk
+    cairo
+    cups
+    dbus
+    expat
+    glib
+    gtk3
+    libdrm
+    libgbm
+    libxkbcommon
+    nspr
+    nss
+    pango
     stdenv.cc.cc.lib
+    systemdLibs
+    libx11
+    libxscrnsaver
+    libxcomposite
+    libxcursor
+    libxdamage
+    libxext
+    libxfixes
+    libxi
+    libxrandr
+    libxtst
+    libxcb
+    libxshmfence
   ];
 
   maybeCodexCli =
@@ -135,7 +193,7 @@ else
 
       makeWrapper "$out/opt/codex-app/start.sh" "$out/bin/codex-desktop" \
         --prefix PATH : ${lib.escapeShellArg runtimePath} \
-        --prefix LD_LIBRARY_PATH : ${lib.escapeShellArg runtimeLibPath} \
+        --prefix LD_LIBRARY_PATH : "$out/opt/codex-app:${runtimeLibPath}" \
         --set-default CODEX_ELECTRON_SKIP_SHELL_ENV 1 \
         --set-default CODEX_ELECTRON_BUNDLED_PLUGINS_RESOURCES_PATH "$out/opt/codex-app/resources" \
         ${maybeCodexCli}
